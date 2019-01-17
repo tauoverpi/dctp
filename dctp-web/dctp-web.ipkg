@@ -1,0 +1,5 @@
+package dctp-web
+sourcedir = src
+pkgs = contrib
+opts = "--partial-eval --total"
+modules = DCTP.Web.Core

@@ -1,0 +1,13 @@
+package dctp
+sourcedir = src
+pkgs = contrib
+opts = "--partial-eval --total"
+modules = DCTP
+        , DCTP.Core
+        , DCTP.Event
+        , DCTP.Switch
+        , DCTP.Controller
+        , DCTP.Varying
+        , Test.DCTP
+
+tests = DCTP.Test.tests
