@@ -2,3 +2,6 @@
 .git
 *.lidr~
 *.idr~
+dctp-xcb
+dctp-sdl
+dctp-glfw

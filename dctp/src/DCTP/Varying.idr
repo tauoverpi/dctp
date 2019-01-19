@@ -48,11 +48,13 @@ Fractional a => Fractional (Varying a) where
   (/) = liftA2 (/)
   recip = map recip
 
+||| Hold the last value and signify when it's changed
 holdV : Monad m => a -> Wire m (Event a) (Varying a)
 holdV a = feedback a $ arrow sum
   where sum (NotNow, c) = (MkVarying False c, c)
         sum (Now c , _) = (MkVarying True  c, c)
 
+||| Signify when the input stream has changed
 changeV : (Monad m, Eq a) => Wire m a (Varying a)
 changeV = WGen $ \x => (next x, MkVarying False x)
   where next x = feedback x $ arrow $ \(a, c) =>
@@ -67,6 +69,8 @@ accumV plus b = feedback b $ arrow sum
 varyingE : Monad m => Wire m (Varying a) (Event a)
 varyingE = arrow $ \x => if changed x then Now (value x) else NotNow
 
+||| Animate only upon change of a value, cache the result and emit
+||| until the next change.
 animateV : Monad m => (a -> m b) -> Wire m (Varying a) (Varying b)
 animateV f = switch id $ effect $ \x =>
   do b <- f (value x); pure (MkVarying True b, Now (aniV b))

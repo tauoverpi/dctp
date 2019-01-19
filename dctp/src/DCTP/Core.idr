@@ -17,42 +17,68 @@ data Event a
   | Now a
 
 data Wire : (m : Type -> Type) -> (a, b : Type) -> Type where
+  ||| Generic opaque pure wire for when there's no other suitable wire
   WGen     : (a -> (Inf $ Lazy $ Wire m a b, b)) -> Wire m a b
+  ||| Pure function without any state, possible to compose
   WArr     : (a -> b) -> Wire m a b
+  ||| Constant wire
   WConst   : b -> Wire m a b
+  ||| Composition, transformations performed for reducing the program
+  ||| graph size aim to eliminate this.
   WComp    : Wire m b c -> Wire m a b -> Wire m a c
+  ||| Identity wire, safe to remove
   WId      : Wire m a a
+  ||| Stateful wire
   WLoop    : c -> Wire m (a, c) (b, c) -> Wire m a b
+  ||| Switch in the current frame
   WSwitch  : (c -> Wire m a b) -> Wire m a (b, Event c) -> Wire m a b
+  ||| Switch in the next frame
   WDSwitch : (c -> Wire m a b) -> Wire m a (b, Event c) -> Wire m a b
+  ||| Lift a monadic effect into a wire network
   WEff     : (a -> m b) -> Wire m a b
 
 Wire' : (a, b : Type) -> Type
 Wire' = Wire Identity
 
+WireM : (Type -> Type) -> Type -> Type
+WireM m b = ArrowMonad (Wire m) b
+
+||| Step a single frame of the wire network within some monad
 stepWire : Monad m => Wire m a b -> a -> m (Inf $ Lazy $ Wire m a b, b)
 stepWire w x =
   case w of
        WGen f => pure (f x)
        WArr f => pure (WArr f, f x)
        WConst x => pure (WConst x, x)
+       -- Left identity
        WComp WId sf => stepWire sf x
+       -- Right identity
        WComp sf WId => stepWire sf x
+       -- Function composition
        WComp (WArr f) (WArr g) =>
         let k = f . g in pure (WArr k, k x)
+       -- Constant folding
        WComp (WArr f) (WConst x) =>
         let r = f x in pure (WConst r, r)
+       -- Constant elimination
        WComp (WConst x) (WConst _) =>
         pure (WConst x, x)
+       -- Effect composition
        WComp (WEff m) (WEff m') =>
-        do x <- m' x
-           x <- m x
-           pure (WEff (m' >=> m), x)
+        do let mm' = m' >=> m
+           x <- mm' x
+           pure (WEff mm', x)
        WComp sf sg =>
         do (sg, b) <- stepWire sg x
            (sf, c) <- stepWire sf b
            pure (WComp sf sg, c)
        WId => pure (WId, x)
+       -- Loop fusion
+       WLoop c (WLoop c' sf) =>
+        do (sf, ((b, c), c')) <- stepWire sf ((x, c), c')
+           let aw = (WComp (WArr (\((b,c),c') => (b,c,c'))) sf)
+           let wa = (WComp aw (WArr (\(b,c,c') => ((b,c),c'))))
+           pure (WLoop (c, c') wa, b)
        WLoop c sf =>
         do (sf, x, c) <- stepWire sf (x, c)
            pure (WLoop c sf, x)
@@ -114,6 +140,9 @@ Monad m => ArrowChoice (Wire m) where
          Left l  => do (sf, l) <- stepWire sf l; pure (Left l, sf, sg)
          Right r => do (sg, r) <- stepWire sg r; pure (Right r, sf, sg)
 
+Monad m => ArrowApply (Wire m) where
+  app = WEff $ \(sf, x) => snd <$> stepWire sf x
+
 Monad m => Functor (Wire m a) where
   map f (WArr g)        = arrow (f . g)
   map f (WConst x)      = WConst (f x)
@@ -154,23 +183,37 @@ Monad m => Applicative (Wire m a) where
 (Monad m, Monoid b) => Monoid (Wire m a b) where
   neutral = pure neutral
 
+||| Introduce state to a given wire
 feedback : c -> Wire m (a, c) (b, c) -> Wire m a b
 feedback = WLoop
 
+||| Delay the input stream by one frame
 delay : Monad m => b -> Wire m a b -> Wire m a b
-delay b sf = feedback b $ first sf >>> arrow swap
+delay b sf = feedback b (first sf >>> arrow swap)
 
+||| Accumulate a result with a given function and starting point
 accum : Monad m => (a -> b -> b) -> b -> Wire m a b
-accum plus b = feedback b $ arrow (uncurry plus) >>> id &&& id
+accum plus b = feedback b (arrow (uncurry plus) >>> id &&& id)
 
+||| Lift a predicate to wires
 predicate : Monad m => (a -> Bool) -> Wire m a (Either a a)
-predicate p = arrow $ \x => if p x then Left x else Right x
+predicate p = arrow (\x => if p x then Left x else Right x)
 
+||| Run a monadic effect as a wire
 effect : (a -> m b) -> Wire m a b
 effect = WEff
 
+eff : m b -> Wire m a b
+eff = effect . const
+
+||| Clamp the output stream between a given range
 clamp : (Monad m, Ord a) => a -> a -> Wire m a a -> Wire m a a
 clamp l u w = w >>> predicate (\x => x < l)
                 >>> pure l \|/ (predicate (\x => x > u) >>> pure u \|/ id)
 
+wire : Monad m => Wire m a b -> a -> WireM m b
+wire w a = MkArrowMonad (pure a >>> w)
 
+infixl 1 -<
+(-<) : Monad m => Wire m a b -> a -> WireM m b
+(-<) = wire

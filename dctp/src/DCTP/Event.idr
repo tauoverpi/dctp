@@ -11,10 +11,6 @@ import Control.Category
 %default total
 %access public export
 
-event : b -> (a -> b) -> Event a -> b
-event b f NotNow = b
-event b f (Now a) = f a
-
 Functor Event where
   map f NotNow = NotNow
   map f (Now a) = Now (f a)
@@ -28,20 +24,25 @@ Monad Event where
   join (Now a) = a
   join _       = NotNow
 
+||| Hold the last given value
 hold : Monad m => a -> Wire m (Event a) a
 hold a = feedback a (arrow sum)
   where sum (NotNow, a) = (a, a)
         sum (Now a , _) = (a, a)
 
+||| Hold the next given value
 hold' : Monad m => a -> Wire m (Event a) a
 hold' a = delay a (hold a)
 
+||| Inhibit forever
 never : Wire m a (Event b)
 never = WConst NotNow
 
+||| Produce a given value now then inhibit forever
 now : b -> Wire m a (Event b)
 now b = WGen $ \_ => (never, Now b)
 
+||| Allow one initial value through then inhibit forever
 one : Wire m a (Event a)
 one = WGen $ \x => (never, Now x)
 
@@ -53,13 +54,16 @@ accumE plus b = feedback b (arrow sum)
 filterE : Monad m => (a -> Bool) -> Wire m a (Event a)
 filterE p = arrow $ \x => if p x then Now x else NotNow
 
-eventE : Monad m => Wire m (Event a) (Either a ())
-eventE = arrow $ \x => case x of
+edge : Monad m => Wire m Bool (Event ())
+edge = arrow $ \x => if x then Now () else NotNow
+
+event : Monad m => Wire m (Event a) (Either a ())
+event = arrow $ \x => case x of
                             NotNow => Right ()
                             Now c  => Left c
 
 onEvent : Monad m => Wire m a b -> Wire m (Event a) (Event b)
-onEvent sf = eventE >>> (sf >>> arrow Now) \|/ pure NotNow
+onEvent sf = event >>> (sf >>> arrow Now) \|/ pure NotNow
 
 infixr 1 -?>
 (-?>) : Monad m => Wire m a (Event b) -> Wire m b c -> Wire m a (Event c)

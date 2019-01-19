@@ -15,6 +15,7 @@ import Control.Category
 import Control.Monad.Identity
 import Control.Monad.Trans
 import Data.IORef
+import Text.PrettyPrint.WL
 
 %default total
 %access public export
@@ -22,10 +23,17 @@ import Data.IORef
 ---- TYPES ---------------------------------------------------------------------
 
 data Element = MkElement Ptr
-data WebEvent = OnClick | OnMouseMove
+
+data HtmlTag = Div | Span
+
+Show HtmlTag where
+  show Div = "div"
+  show Span = "span"
 
 DTime : Type
 DTime = Int
+
+data WebEvent = OnClick | OnMouseMove
 
 Show WebEvent where
   show OnClick = "click"
@@ -48,6 +56,12 @@ requestAnimationFrame fn = assert_total $
   foreign FFI_JS "requestAnimationFrame(%0)"
           (JsFn (() -> JS_IO ()) -> JS_IO ())
           (MkJsFn fn)
+
+createElement : HtmlTag -> JS_IO Element
+createElement tag =
+  do ptr <- foreign FFI_JS "document.createElement(%0)" (String -> JS_IO Ptr)
+            (show tag)
+     pure (MkElement ptr)
 
 ---- FRAMEWORK -----------------------------------------------------------------
 
@@ -120,23 +134,8 @@ namespace Sub
 
 namespace Wire
 
-  ||| Compute the integral of a given initial value and a time source
-  integral : (Monad m, Num a) => (source : m a) -> a -> Wire m a a
-  integral time init = feedback init (effect (const time) &&& id >>> arrow sum)
-    where sum (dt, dx, x) = (x, x + dt * dx)
-
   ||| Clip framerate in respect to a given time source
   framerate : (Monad m, Num a, Ord a) => m a -> a -> Wire m b (Event b)
-
-  ||| Compute delta time
-  dt : (Monad m, Neg b) => m b -> Wire m a b
-  dt tm {b} = switch id $ effect $ \_ =>
-    do (_, t) <- stepWire time ()
-       pure (0, Now (dt' t))
-    where time : Num b => Wire m a b
-          time = effect (const tm)
-          dt' : Neg b => b -> Wire m a b
-          dt' t = time >>> arrow (flip (-) t)
 
 ---- DEBUGGER
 
@@ -159,10 +158,9 @@ namespace Debug
 
 ---- RENDERING -----------------------------------------------------------------
 
-data HtmlTag = Div | Span
-data HtmlEvent a = MkHEvent a
+data HtmlEvent a = MkHEvent WebEvent a
 Attribute : Type
-Attribute = List (String, String)
+Attribute = (String, String)
 data Html : Type -> Type where
   HtmlElem : HtmlTag
           -> List Attribute
@@ -170,6 +168,30 @@ data Html : Type -> Type where
           -> List (Html a)
           -> Html a
   HtmlText : String -> Html a
+
+Show a => Show (HtmlEvent a) where
+  show (MkHEvent e a) =
+    "on" ++ show e ++ "=\"dctp_" ++ show e ++ "(" ++ show a ++ ")\""
+
+Show a => Show (Html a) where
+  show = toString . prettyHtml
+    where prettyHtml : Show a => Html a -> Doc
+          prettyHtml (HtmlText s) = text s
+          prettyHtml (HtmlElem tag attr event html) =
+            let events = concatMap ((" "++) . show) event
+                attrs  = case attr of
+                              [] => ""
+                              _  => " style=\""
+                                    ++ concatMap (\(a,b) => a ++ ": " ++ b ++ ";") attr
+                                    ++ "\""
+                open = angles $
+                    text (show tag)
+                    |+| text events
+                    |+| text attrs
+                content = assert_total (concatMap prettyHtml html)
+                close = angles $
+                    text "/" |+| text (show tag)
+            in open |$| (indent 2 content) |$| close
 
 style : (List Attribute -> List Attribute) -> Html a -> Html a
 style f (HtmlElem x xs ys zs) = HtmlElem x (f xs) ys zs
@@ -179,11 +201,10 @@ style f x = x
 
 decl syntax htmltag {name} [tag] =
   ||| Html element constructor
-  name : HtmlTag
-      -> (events : List (HtmlEvent a))
+  name : (events : List (HtmlEvent a))
       -> (nodes : List (Html a))
       -> Html a
-  name t = HtmlElem t []
+  name = HtmlElem tag []
 
 htmltag div Div
 htmltag span Span
@@ -191,9 +212,9 @@ htmltag span Span
 text : String -> Html a
 text = HtmlText
 
----- COMPILE
+render : Element -> Html a -> Html a -> JS_IO ()
 
-compile : Html a -> Wire JS_IO () (Event a)
+---- COMPILE
 
 ---- SIMPLE GAME ---------------------------------------------------------------
 

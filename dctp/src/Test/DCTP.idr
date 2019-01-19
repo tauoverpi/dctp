@@ -9,6 +9,7 @@ import DCTP.Collection
 import DCTP.Switch
 import DCTP.Trans
 import DCTP.Varying
+import DCTP.Time
 import Control.Monad.Trans
 import Control.Monad.Reader
 import Control.Arrow
@@ -226,9 +227,34 @@ testAnimateV =
      let expected = [1,1,2,2,3,3]
      equal "animateV" program input expected
 
--- RUNNER ----------------------------------------------------------------------
+testFor : IO Bool
+testFor =
+  do ref <- newIORef (the Int 0)
+     let clock    = do modifyIORef ref (+1); readIORef ref
+     let program  = for clock 3
+     let input    = [1,1,1,1,1]
+     let expected = [Now 1, Now 1, Now 1, NotNow, NotNow]
+     equal "for" program input expected
 
-bar : List TTName
+testAfter : IO Bool
+testAfter =
+  do ref <- newIORef (the Int 0)
+     let clock    = do modifyIORef ref (+1); readIORef ref
+     let program  = after clock 3
+     let input    = [1,1,1,1,1]
+     let expected = [NotNow, NotNow, NotNow, Now 1, Now 1]
+     equal "after" program input expected
+
+testEvery : IO Bool
+testEvery =
+  do ref <- newIORef (the Int 0)
+     let clock    = do modifyIORef ref (+1); readIORef ref
+     let program  = every clock 1
+     let input    = [1,1,1,1,1]
+     let expected = [NotNow, Now 1, NotNow, Now 1, NotNow]
+     equal "every" program input expected
+
+-- RUNNER ----------------------------------------------------------------------
 
 tests : IO ()
 tests = runTests
@@ -259,4 +285,7 @@ tests = runTests
   -- Varying
   , testChangeV
   , testAnimateV
+  , testFor
+  , testAfter
+  , testEvery
   ]

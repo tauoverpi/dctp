@@ -10,4 +10,4 @@ modules = DCTP
         , DCTP.Varying
         , Test.DCTP
 
-tests = DCTP.Test.tests
+tests = Test.DCTP.tests

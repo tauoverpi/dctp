@@ -39,6 +39,8 @@ reset old = feedback old $ effect $ \((x, c), sf) =>
 resetSelf : Monad m => Wire m a (b, Event c) -> Wire m a b
 resetSelf sf = feedback NotNow $ reset sf
 
+||| Become the other wire upon inhibition of the first
+||| + switch: once, next
 become : Monad m => Wire m a (Event b) -> Wire m a b -> Wire m a b
 become sf sg = dSwitch id $ feedback sf $ effect $ \(x, sf) =>
   do (sf, b) <- stepWire sf x
@@ -46,6 +48,9 @@ become sf sg = dSwitch id $ feedback sf $ effect $ \(x, sf) =>
           NotNow => do (sg, b) <- stepWire sg x; pure ((b, Now sg), sf)
           Now b  => pure ((b, NotNow), sf)
 
+||| Become the other wire upon inhibition of the first
+||| + switch: once, next
+||| + inhibits: when the second wire inhibits
 becomeE : Monad m => Wire m a (Event b) -> Wire m a (Event b) -> Wire m a (Event b)
 becomeE sf sg = switch id $ feedback sf $ effect $ \(x, sf) =>
   do (sf, b) <- stepWire sf x
@@ -53,6 +58,8 @@ becomeE sf sg = switch id $ feedback sf $ effect $ \(x, sf) =>
           NotNow => pure ((NotNow, Now sg), sg)
           Now _  => pure ((b, NotNow), sf)
 
+||| Act as the second wire until the first stops inhibiting
+||| + switch: recur, next
 alt : Monad m => Wire m a (Event b) -> Wire m a b -> Wire m a b
 alt sf sg = feedback (sf, sg) $ effect $ \(x, sf, sg) =>
   do (sf, b) <- stepWire sf x
@@ -60,6 +67,9 @@ alt sf sg = feedback (sf, sg) $ effect $ \(x, sf, sg) =>
           NotNow => do (sg, b) <- stepWire sg x; pure (b, sf, sg)
           Now b  => pure (b, sf, sg)
 
+||| Act as the second wire until the first stops inhibiting
+||| + switch: recur, next
+||| + inhibits: when both wires inhibit
 altE : Monad m => Wire m a (Event b) -> Wire m a (Event b) -> Wire m a (Event b)
 altE sf sg = feedback (sf, sg) $ effect $ \(x, sf, sg) =>
   do (sf, b) <- stepWire sf x
@@ -67,18 +77,24 @@ altE sf sg = feedback (sf, sg) $ effect $ \(x, sf, sg) =>
           NotNow => do (sg, b) <- stepWire sg x; pure (b, sf, sg)
           Now b  => pure (Now b, sf, sg)
 
+||| Switch to a wire given as input
+||| + switch: recur, now, reset
 rSwitch : Monad m => Wire m a b -> Wire m (a, Event (Wire m a b)) b
 rSwitch sf = feedback sf $ effect $ \((x, e), sf) =>
   case e of
        NotNow => do (sf, b) <- stepWire sf x; pure (b, sf)
        Now w  => do (sf, b) <- stepWire w  x; pure (b, sf)
 
+||| Switch to a wire given as input
+||| + switch: recur, next, reset
 drSwitch : Monad m => Wire m a b -> Wire m (a, Event (Wire m a b)) b
 drSwitch sf = feedback sf $ effect $ \((x, e), sf) =>
   case e of
        NotNow => do (sf, b) <- stepWire sf x; pure (b, sf)
        Now w  => do (sf, b) <- stepWire sf x; pure (b, w)
 
+||| Generate a new wire based on the current wire and the result of a test wire
+||| + switch: once, now
 kSwitch : Monad m
        => Wire m a b
        -> Wire m (a, b) (Event c)
@@ -91,6 +107,8 @@ kSwitch sf test gen = dSwitch id $ feedback sf $ effect $ \(x, w) =>
           Now c  => do (sn, b) <- stepWire (gen sf c) x; pure ((b, Now sn), sn)
           NotNow => pure ((b, NotNow), sf)
 
+||| Generate a new wire based on the current wire and the result of a test wire
+||| + switch: once, next
 dkSwitch : Monad m
         => Wire m a b
         -> Wire m (a, b) (Event c)

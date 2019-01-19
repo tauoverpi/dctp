@@ -14,6 +14,8 @@ import Debug.Trace
 %default total
 %access public export
 
+||| Apply a list of wires over a list of inputs. If there isn't enough
+||| input supply the given default value
 zipWire : Monad m => a -> List (Wire m a b) -> Wire m (List a) (List b)
 zipWire def ws {a} = feedback ws $ effect $ \(xs, ws) => go id xs ws
   where go : (List (b, Wire m a b) -> List (b, Wire m a b)) -> List a -> List (Wire m a b) -> m (List b, List (Wire m a b))
