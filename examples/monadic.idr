@@ -14,7 +14,7 @@ import Control.Category
 program : WireM IO (Event ())
 program =
   do attempts <- accum (+) 0              -< the Int 1
-     rng      <- clamp 0 100 (id*id + id) -< attempts
+     rng      <- clip 0 100 (id*id + id) -< attempts
      guess    <- prompt
      if cast guess == rng
         then print "you win" *> pure (Now ())

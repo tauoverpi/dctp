@@ -206,10 +206,9 @@ effect = WEff
 eff : m b -> Wire m a b
 eff = effect . const
 
-||| Clamp the output stream between a given range
-clamp : (Monad m, Ord a) => a -> a -> Wire m a a -> Wire m a a
-clamp l u w = w >>> predicate (\x => x < l)
-                >>> pure l \|/ (predicate (\x => x > u) >>> pure u \|/ id)
+||| Clip the output stream between a given range
+clip : (Monad m, Ord a) => a -> a -> Wire m a a -> Wire m a a
+clip l u w = w >>> arrow (max u) >>> arrow (min l)
 
 wire : Monad m => Wire m a b -> a -> WireM m b
 wire w a = MkArrowMonad (pure a >>> w)

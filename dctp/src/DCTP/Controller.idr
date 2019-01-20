@@ -18,3 +18,11 @@ control : Monad m => Wire m () (Event b) -> m b
 control sf =
   do (_, Now b) <- stepWire sf () | (sf, _) => control sf
      pure b
+
+trace : Monad m => Nat -> Wire m () (Event b) -> m (Maybe b)
+trace Z sf =
+  do (_, Now b) <- stepWire sf () | _ => pure Nothing
+     pure (Just b)
+trace (S n) sf =
+  do (sf, Now b) <- stepWire sf () | (sf, _) => trace n sf
+     pure (Just b)

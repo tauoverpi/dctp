@@ -190,6 +190,13 @@ testGather =
       expected = [[(0,0)],[(0,1)],[(1,0)],[(0,2)],[(42,0)],[]]
   in equal "gather" program input expected
 
+testDynamic : IO Bool
+testDynamic =
+  let program  = dynamic {a=()} {k=Int} (\_ => now 0 >> now 1 >> now 2)
+      input    = [(0,()), (1,()), (0,()), (0,()), (0,())]
+      expected = [[0], [0,0], [1,0], [2,0], [0]]
+  in equal "dynamic" program input expected
+
 testParA : IO Bool
 testParA =
   let program  = parA (\a => map (flip MkPair a)) [accum (+) 0, id]
@@ -277,6 +284,7 @@ tests = runTests
   , testZipWire
   , testDZipWire
   , testGather
+  , testDynamic
   , testParA
   -- Controller
   , testAnimate
@@ -285,6 +293,7 @@ tests = runTests
   -- Varying
   , testChangeV
   , testAnimateV
+  -- Time
   , testFor
   , testAfter
   , testEvery

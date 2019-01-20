@@ -5,6 +5,7 @@
 module Main
 
 import DCTP
+import DCTP.Syntax
 import Control.Arrow
 import Control.Category
 
@@ -13,18 +14,17 @@ import Control.Category
 
 program : Wire IO () (Event ())
 program =
-  let attempts : Wire IO () Int    = accum (+) 0 . 1
-      rng      : Wire IO () Int    = clamp 0 100 (id*id + id) . attempts
-      prompt   : Wire IO () String = eff getLine . eff (putStr "guess: ")
-      print    : Wire IO String () = effect putStrLn
-      failtext = pure ()
-             >>> pure "wrong! was " <+> map show rng <+> pure ". try again"
+  let attempts = pure (the Int 1) >>> accum (+) 0
+      rng      = attempts >>> clip 0 100 (id*id + id)
+      prompt   = eff (putStr "guess: ") >>> eff getLine
+      print    = effect putStrLn
+      failtext = pure "wrong! was " <+> map show rng <+> pure ". try again"
              >>> print
              >>> pure NotNow
       wintext  = pure "you win" >>> print >>> pure (Now ())
-  in liftA2 (==) (map cast prompt) rng
-     >>> predicate id
-     >>> wintext \|/ failtext
+  in ifW (liftA2 (==) (map cast prompt) rng)
+         then wintext
+         else failtext
 
 covering
 main : IO ()

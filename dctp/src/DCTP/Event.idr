@@ -70,6 +70,12 @@ infixr 1 -?>
 e -?> s = e >>> onEvent s
 
 ||| Clip if the given value is outside given bounds
-clip : (Monad m, Ord a) => a -> a -> Wire m a a -> Wire m a (Event a)
-clip l u w = w >>> predicate (\x => x < l || x > u) >>> never \|/ arrow Now
+clipE : (Monad m, Ord a) => a -> a -> Wire m a a -> Wire m a (Event a)
+clipE l u w = w >>> predicate (\x => x < l || x > u) >>> never \|/ arrow Now
+
+decide : Monad m => Wire m a Bool -> Wire m a b -> Wire m a b -> Wire m a b
+decide t c a = t &&& id
+        >>> predicate fst
+        >>> (arrow snd >>> c) \|/ (arrow snd >>> a)
+
 

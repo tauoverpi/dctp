@@ -8,6 +8,7 @@ modules = DCTP
         , DCTP.Switch
         , DCTP.Controller
         , DCTP.Varying
+        , DCTP.Syntax
         , Test.DCTP
 
 tests = Test.DCTP.tests
