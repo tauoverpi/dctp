@@ -261,6 +261,24 @@ testEvery =
      let expected = [NotNow, Now 1, NotNow, Now 1, NotNow]
      equal "every" program input expected
 
+testBetween : IO Bool
+testBetween =
+  do ref <- newIORef (the Int 0)
+     let clock    = do modifyIORef ref (+1); readIORef ref
+     let program  = between clock 1 3
+     let input    = [1,1,1,1,1]
+     let expected = [NotNow, Now 1, Now 1, Now 1, NotNow]
+     equal "between" program input expected
+
+testOutside : IO Bool
+testOutside =
+  do ref <- newIORef (the Int 0)
+     let clock    = do modifyIORef ref (+1); readIORef ref
+     let program  = outside clock 1 3
+     let input    = [1,1,1,1,1]
+     let expected = [Now 1, NotNow, NotNow, NotNow, Now 1]
+     equal "outside" program input expected
+
 -- RUNNER ----------------------------------------------------------------------
 
 tests : IO ()
@@ -297,4 +315,6 @@ tests = runTests
   , testFor
   , testAfter
   , testEvery
+  , testBetween
+  , testOutside
   ]

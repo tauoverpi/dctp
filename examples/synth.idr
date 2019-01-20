@@ -48,18 +48,18 @@ odd : Bytebeat
 odd = time .>>. time
 
 chaotic : Bytebeat
-chaotic = (time .>>. (pure 8 .&. time)) * time
+chaotic = (time .>>. (8 .&. time)) * time
 
 ambient : Bytebeat
-ambient = (time .>>. (pure 8 .&. time)) * (time .>>. (pure 15 .&. time))
+ambient = (time .>>. (8 .&. time)) * (time .>>. (15 .&. time))
 
 what : Bytebeat
-what = time .%. ((time .>>. pure 8) .|. (time .>>. pure 16))
+what = time .%. ((time .>>. 8) .|. (time .>>. 16))
 
 glitchcore : Bytebeat
 glitchcore =
   liftA2 prim__subB32
-    (((time .%. (time >>> pure 16) .|. (time .>>. pure 8)) .>>. pure 2) .&. time)
+    (((time .%. (time >>> 16) .|. (time .>>. 8)) .>>. 2) .&. time)
     1
 
 covering
@@ -74,7 +74,7 @@ writeWire w =
 
 help : IO ()
 help = putStrLn """
-usage: synth track
+usage: synth track | aplay
 
 tracks:
   triangle

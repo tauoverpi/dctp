@@ -61,3 +61,19 @@ after time limit = interval (<) time (limit - 1)
 ||| + inhibits: between every interval
 every : (Monad m, Num n, Ord n) => m n -> n -> Wire m a (Event a)
 every time limit = resetSelf (interval (==) time limit >>> id &&& id)
+
+||| Live between a given range
+||| + inhibits: outside the given range
+between : (Monad m, Num n, Ord n)
+       => m n
+       -> (lower, upper : n)
+       -> Wire m a (Event a)
+between time l u = interval (\o, t => t >= (l + o) && t <= (u + o)) time 0
+
+||| Live outside a given range
+||| + inhibits: within the given range
+outside : (Monad m, Num n, Ord n)
+       => m n
+       -> (lower, upper : n)
+       -> Wire m a (Event a)
+outside time l u = interval (\o, t => t < (l + o) || t > (u + o)) time 0
