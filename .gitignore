@@ -5,3 +5,5 @@
 dctp-xcb
 dctp-sdl
 dctp-glfw
+dctp-network
+dctp-http

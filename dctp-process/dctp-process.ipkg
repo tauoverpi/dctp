@@ -1,0 +1,6 @@
+package dctp-process
+-- pkgs = dctp
+sourcedir = src
+opts = "--partial-eval"
+modules = DCTP.Process
+tests = Test.DCTP.Process.tests

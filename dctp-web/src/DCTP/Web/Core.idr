@@ -90,8 +90,8 @@ namespace Sub
   Sub : Type -> Type -> Type
   Sub = Wire JS_IO
 
-  epochTime : Sub a Int
-  epochTime = effect . const $ foreign FFI_JS "Date.now()" (JS_IO Int)
+  dateNow : Sub a Int
+  dateNow = effect . const $ foreign FFI_JS "Date.now()" (JS_IO Int)
 
   performanceNow : Sub a Double
   performanceNow = effect . const $ foreign FFI_JS "performance.now()" (JS_IO Double)
